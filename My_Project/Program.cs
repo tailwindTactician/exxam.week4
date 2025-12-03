@@ -77,13 +77,18 @@ foreach (var item in t)
 Console.WriteLine("--------------------------------------------------------4");
 
 var s = people
-    .Select(p => new { FullName = p.FullName, CityName = cities 
-        .First(c => c.Id == p.CityId).Name, CountryName = countries
-        .First(a => a.Id == cities
-            .First(c => c.Id == p.CityId).CountryId).Name });
+    .Join(cities, p => p.CityId, c => c.Id, (p, c) => new { p.FullName, c.Name, c.CountryId })
+    .Join(countries, x => x.CountryId, co => co.Id, (x, co) => new
+        {
+            x.FullName,
+            CityName = x.Name,
+            CountryName = co.Name
+        });
 
 foreach (var item in s)
+{
     Console.WriteLine($"{item.FullName} ---- {item.CityName} ----- {item.CountryName}");
+}
 
 Console.WriteLine("-----------------------------------------------------------5");
 var k = cities
@@ -93,21 +98,94 @@ var k = cities
         { 
             PersonName = p.FullName, 
             CityName = city.Name, 
-            CountryName = countries.First(co => co.Id == city.CountryId).Name 
+            CountryName = countries.First(g => g.Id == city.CountryId).Name 
         }));
 
 foreach (var item in k )
     Console.WriteLine($"{item.PersonName}, {item.CityName}, {item.CountryName}");
 
 Console.WriteLine("-------------------------------------------------------------6");
-var a = cities
-    .Select(city => new { CityName = city.Name, OldestPerson = people
-            .Where(p => p.CityId == city.Id)
-            .OrderByDescending(p => p.Age)
-            .FirstOrDefault() })
-    .Where(x => x.OldestPerson != null);
+var cityById = cities.ToDictionary(c => c.Id, c => c);
 
-foreach (var item in a)
-    Console.WriteLine($"{item.CityName}: {item.OldestPerson.FullName} — {item.OldestPerson.Age}");
+var r = people
+    .GroupBy(p => p.CityId)
+    .Select(g => new
+    {
+        CityId = g.Key,
+        OldestPerson = g.OrderByDescending(p => p.Age).First()
+    })
+    .Join(cities, x => x.CityId, c => c.Id, (x, c) => new
+        {
+            CityName = c.Name,
+            FullName = x.OldestPerson.FullName,
+            Age = x.OldestPerson.Age
+        })
+    .OrderBy(x => x.CityName);
 
-Console.WriteLine("---------------------------------------------------------7");
+foreach (var item in r)
+{
+    Console.WriteLine($"{item.CityName}: {item.FullName} — {item.Age}");
+}
+
+Console.WriteLine("-------------------------------------------------------------7");
+
+var e = countries
+    .Select(country => new
+    {
+        Country = country.Name,
+        BiggestCity = country.Cities.OrderByDescending(c => c.Population).First(),
+    })
+    .SelectMany(x => x.BiggestCity.People
+        .Select(p => $"{p.FullName} — {x.BiggestCity.Name}, {x.Country}")
+    )
+    .OrderBy(x => x);
+
+foreach (var line in e)
+    Console.WriteLine(line);
+
+
+Console.WriteLine("-------------------------------------------------------------8");
+
+var u = cities
+    .Where(city => city.Name.Length == 5)
+    .SelectMany(city => city.People, (city, p) => $"{p.FullName} ---- {city.Name}")
+    .OrderBy(x => x);
+
+foreach (var line in u) 
+    Console.WriteLine(line);
+    
+    
+    
+Console.WriteLine("-------------------------------------------------------------9");
+
+var l = countries
+    .Select(country => new
+    {
+        CountryName = country.Name,
+        YoungestPerson = country.Cities
+            .SelectMany(city => city.People)
+            .OrderBy(p => p.Age)
+            .FirstOrDefault()
+    })
+    .Where(x => x.YoungestPerson != null)
+    .OrderBy(x => x.CountryName);
+
+foreach (var item in l)
+{
+    Console.WriteLine($"{item.CountryName}: {item.YoungestPerson.FullName} — {item.YoungestPerson.Age}");
+}
+
+
+Console.WriteLine("-------------------------------------------------------------10");
+
+var f = cities
+    .Select(city => new
+    {
+        CityName = city.Name,
+        CountryName = city.Country.Name,
+        Count = city.People.Count(p => p.Age >= 20 && p.Age <= 30)
+    })
+    .OrderByDescending(x => x.Count)
+    .First();
+
+Console.WriteLine($"{f.CityName}, {f.CountryName} — {result.Count} person");
